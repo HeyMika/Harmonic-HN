@@ -7,6 +7,9 @@
     <string name="local_network_denied_title">Local network access is off</string>
     <string name="local_network_denied_reason">To use your AI server, open Permissions in app settings and allow Nearby devices. Then try again.</string>
     <string name="local_network_open_settings">Open settings</string>
+    <string name="client_certificate_none_chosen">No certificate chosen</string>
+    <string name="client_certificate_install">Install</string>
+    <string name="client_certificate_unavailable">Client certificate “%1$s” is no longer available. Choose it again in AI settings.</string>
     <string name="local_network_access_required">Local network access is required to reach your AI server. Allow Nearby devices in Harmonic’s app permissions, then try again.</string>
     <string name="app_name">Harmonic</string>
     <string name="startup_failure_title">Harmonic couldn’t open your saved data</string>
