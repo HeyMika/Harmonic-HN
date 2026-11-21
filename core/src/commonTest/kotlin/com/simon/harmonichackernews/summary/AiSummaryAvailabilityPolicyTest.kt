@@ -12,7 +12,7 @@ class AiSummaryAvailabilityPolicyTest {
                 explicitlyEnabled = false,
                 mode = AiSummaryAvailabilityPolicy.MODE_LOCAL,
                 localAvailable = true,
-                cloudApiKeyAvailable = true,
+                cloudCredentialAvailable = true,
             ),
         )
     }
@@ -24,7 +24,7 @@ class AiSummaryAvailabilityPolicyTest {
                 explicitlyEnabled = true,
                 mode = AiSummaryAvailabilityPolicy.MODE_LOCAL,
                 localAvailable = false,
-                cloudApiKeyAvailable = true,
+                cloudCredentialAvailable = true,
             ),
         )
         assertTrue(
@@ -32,7 +32,7 @@ class AiSummaryAvailabilityPolicyTest {
                 explicitlyEnabled = null,
                 mode = "cloud",
                 localAvailable = false,
-                cloudApiKeyAvailable = true,
+                cloudCredentialAvailable = true,
             ),
         )
     }
@@ -43,14 +43,14 @@ class AiSummaryAvailabilityPolicyTest {
             AiSummaryAvailabilityPolicy.isEnabled(
                 explicitlyEnabled = null,
                 localAvailable = true,
-                cloudApiKeyAvailable = false,
+                cloudCredentialAvailable = false,
             ),
         )
         assertFalse(
             AiSummaryAvailabilityPolicy.isEnabled(
                 explicitlyEnabled = null,
                 localAvailable = false,
-                cloudApiKeyAvailable = false,
+                cloudCredentialAvailable = false,
             ),
         )
     }

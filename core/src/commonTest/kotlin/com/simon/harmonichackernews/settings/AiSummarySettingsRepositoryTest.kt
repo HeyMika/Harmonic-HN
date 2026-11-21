@@ -75,6 +75,43 @@ class AiSummarySettingsRepositoryTest {
     }
 
     @Test
+    fun clientCertificateReplacesTheApiKeyOnlyForCustomServers() = runTest {
+        val store = TestKeyValueStore()
+        val repository = AiSummarySettingsRepository(
+            store, TestCredentialStore(), emptyFlow(), clientCertificatesSupported = true,
+        )
+        repository.setModel("local-model")
+        assertNull(repository.snapshot().clientCertificate)
+
+        repository.setBaseUrl("https://ai.example.test/v1")
+        assertEquals("", repository.snapshot().clientCertificate)
+        assertFalse(repository.snapshot().cloudConfigurationComplete)
+
+        repository.setClientCertificate("phone")
+        assertTrue(repository.awaitSnapshot().cloudConfigurationComplete)
+        assertEquals("phone", repository.cloudConfig().clientCertificate)
+
+        // A public provider is never offered the certificate, and needs its API key again.
+        repository.setBaseUrl(AiSummaryProviders.OPENAI.baseUrl)
+        repository.setModel("gpt-test")
+        assertNull(repository.snapshot().clientCertificate)
+        assertFalse(repository.snapshot().cloudConfigurationComplete)
+        assertEquals("", repository.cloudConfig().clientCertificate)
+
+        repository.setBaseUrl("https://ai.example.test/v1")
+        assertEquals("phone", repository.snapshot().clientCertificate)
+        repository.setClientCertificate("")
+        assertEquals("", repository.snapshot().clientCertificate)
+        assertFalse(store.contains(AiSummaryPreferenceKeys.CLIENT_CERTIFICATE))
+
+        // A choice restored on a host without certificate storage must not stand in for a key.
+        store.putString(AiSummaryPreferenceKeys.CLIENT_CERTIFICATE, "phone")
+        val unsupported = AiSummarySettingsRepository(store, TestCredentialStore(), emptyFlow())
+        assertNull(unsupported.snapshot().clientCertificate)
+        assertFalse(unsupported.snapshot().cloudConfigurationComplete)
+    }
+
+    @Test
     fun availableBuiltInLocalProviderEnablesSummariesByDefault() {
         val store = TestKeyValueStore()
         val repository = AiSummarySettingsRepository(store, TestCredentialStore(), emptyFlow())

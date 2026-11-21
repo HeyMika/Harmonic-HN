@@ -21,6 +21,17 @@ interface AuthenticatedHttpClientProvider {
     fun close() = reset()
 }
 
+/**
+ * Supplies a transport that presents a TLS client certificate from host credential storage.
+ *
+ * It carries only requests to the user's own AI server, so the certificate is never offered to
+ * Hacker News, article sites or public AI providers.
+ */
+fun interface ClientCertificateHttpClient {
+    /** [certificate] is the host's name for the chosen certificate. */
+    suspend fun client(certificate: String): HttpClient
+}
+
 fun interface NetworkCacheMaintenance {
     fun removeCachedStoryResponses(storyId: Int)
 
@@ -59,6 +70,7 @@ class NetworkGraph internal constructor(
     private val cacheMaintenance: NetworkCacheMaintenance = NetworkCacheMaintenance.None,
     private val readOnlyTransport: NetworkTransport? = null,
     private val cloudEndpointAccess: CloudEndpointAccess = CloudEndpointAccess.Unrestricted,
+    private val clientCertificateClient: ClientCertificateHttpClient? = null,
 ) {
     /** Retains ownership of caller-supplied transports for native and test hosts. */
     constructor(
@@ -74,6 +86,7 @@ class NetworkGraph internal constructor(
     private val client: suspend () -> HttpClient = (readOnlyTransport ?: transport)::await
     // This surface can issue writes and GET-based actions; never give it read-only retries.
     val httpClient: KtorHttpClient = KtorHttpClient(transport::await)
+    val clientCertificatesSupported: Boolean get() = clientCertificateClient != null
 
     val hackerNewsApi: HackerNewsApi = KtorHackerNewsApi(client)
     val userProfiles = UserProfileRepository(
@@ -89,7 +102,12 @@ class NetworkGraph internal constructor(
         KtorLinkSummaryRepository(client, linkPreviewRepository)
     val previewContentCoordinator: PreviewContentCoordinator = PreviewContentCoordinator(scope)
     val cloudSummaryRepository: CloudSummaryRepository =
-        KtorCloudSummaryRepository(httpClient, userAgent, endpointAccess = cloudEndpointAccess)
+        KtorCloudSummaryRepository(
+            httpClient,
+            userAgent,
+            endpointAccess = cloudEndpointAccess,
+            clientCertificateClient = clientCertificateClient,
+        )
     val summaryUseCase: SummaryUseCase = SummaryUseCase(cloudSummaryRepository)
     val aiModelCatalogRepository: AiModelCatalogRepository =
         KtorAiModelCatalogRepository(httpClient)

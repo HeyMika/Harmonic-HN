@@ -32,6 +32,8 @@ data class CloudSummaryConfig(
     val systemPrompt: String = CloudSummaryDefaults.SYSTEM_PROMPT,
     val streamResponses: Boolean = true,
     val inputCharacterLimit: Int = 15_000,
+    /** Host name of the TLS client certificate to present; empty for none. */
+    val clientCertificate: String = "",
 )
 
 sealed interface CloudSummaryEvent {
@@ -51,6 +53,7 @@ class KtorCloudSummaryRepository(
     private val articleUserAgent: String,
     private val requestDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val endpointAccess: CloudEndpointAccess = CloudEndpointAccess.Unrestricted,
+    private val clientCertificateClient: ClientCertificateHttpClient? = null,
 ) : CloudSummaryRepository {
     override suspend fun fetchModelIds(baseUrl: String, apiKey: String): List<String> = withContext(requestDispatcher) {
         endpointAccess.ensureAccess(baseUrl)
@@ -102,7 +105,9 @@ class KtorCloudSummaryRepository(
         config: CloudSummaryConfig,
         text: String?,
     ): Flow<CloudSummaryEvent> = channelFlow {
-        if (config.apiKey.isBlank()) throw CloudSummaryException("API Key missing")
+        if (config.apiKey.isBlank() && config.clientCertificate.isEmpty()) {
+            throw CloudSummaryException("API Key missing")
+        }
         val model = AiSummaryProviders.getModelForRequest(config.baseUrl, config.model)
         if (model.isBlank()) {
             throw CloudSummaryException(
@@ -130,7 +135,7 @@ class KtorCloudSummaryRepository(
             requestBuilder
                 .header("x-api-key", config.apiKey)
                 .header("anthropic-version", "2023-06-01")
-        } else {
+        } else if (config.apiKey.isNotBlank()) {
             requestBuilder.header("Authorization", "Bearer ${config.apiKey}")
         }
         val request = requestBuilder.post(
@@ -141,7 +146,7 @@ class KtorCloudSummaryRepository(
         try {
             // Keep the response open while consuming events. Buffered execute() waits for EOF
             // before exposing the first token. A finite deadline still bounds provider requests.
-            client.newBuilder().readTimeoutMillis(120_000).build().executeStreaming(
+            endpointClient(config).newBuilder().readTimeoutMillis(120_000).build().executeStreaming(
                 request,
                 requestTimeoutMillis = 120_000,
             ) { response ->
@@ -172,6 +177,14 @@ class KtorCloudSummaryRepository(
             throw CloudSummaryException("API error: ${error.readableMessage()}", error)
         }
     }.flowOn(requestDispatcher)
+
+    /** The shared transport never holds a client certificate; a chosen one gets its own client. */
+    private fun endpointClient(config: CloudSummaryConfig): KtorHttpClient {
+        if (config.clientCertificate.isEmpty()) return client
+        val certificateClient = clientCertificateClient
+            ?: throw CloudSummaryException("Client certificates are unavailable on this platform")
+        return KtorHttpClient({ certificateClient.client(config.clientCertificate) })
+    }
 
     private suspend fun readStream(
         body: HttpResponseBody,

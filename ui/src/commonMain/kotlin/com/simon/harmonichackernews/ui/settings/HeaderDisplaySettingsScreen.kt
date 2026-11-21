@@ -153,7 +153,7 @@ fun HeaderDisplaySettingsRoute(
             localAvailable = dependencies.localSummaryEngine?.isReady(
                 aiSettings.geminiNanoSummaryMode == GeminiNanoSummaryMode.THREE_BULLETS,
             ) == true,
-            cloudApiKeyAvailable = aiSettings.apiKey.isNotBlank(),
+            cloudCredentialAvailable = aiSettings.cloudCredentialAvailable,
         ),
     ).let { display ->
         display.copy(showUpButton = !platformStyle.navigationInSideRail &&

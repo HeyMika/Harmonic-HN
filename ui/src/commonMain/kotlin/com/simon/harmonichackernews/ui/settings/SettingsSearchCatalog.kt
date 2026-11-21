@@ -21,6 +21,7 @@ internal data class SettingsSearchAvailability(
     val debug: Boolean = false,
     val cloudAi: Boolean = true,
     val cloudAiSupported: Boolean = true,
+    val clientCertificate: Boolean = false,
     val geminiNano: Boolean = false,
     val nighttimeScheme: Boolean = false,
     val localAi: Boolean = false,
@@ -244,6 +245,9 @@ internal fun settingsSearchCatalog(
         "Base URL" to "api endpoint server openai compatible cloud provider",
         "API Key" to "token credential secret authentication cloud openai",
         "Model" to "name cloud llm gpt gemini claude")
+    if (availability.cloudAiSupported && availability.cloudAi && availability.clientCertificate) group(
+        SettingsSection.AiSummary, "Large language model",
+        "Client certificate" to "mtls mutual tls authentication self hosted ollama identity")
     if (availability.geminiNano) group(SettingsSection.AiSummary, "Summarization",
         "Gemini Nano summarizer" to "on device local three bullets prompt summary")
     if (availability.localAi) group(SettingsSection.AiSummary, "Large language model",

@@ -104,6 +104,8 @@ fun AiSummarySettingsRoute(
     onArticleCategoriesRequested: (() -> Unit)? = null,
     localModelsContent: @Composable () -> Unit,
     onTextSettingSaved: () -> Unit,
+    /** Opens the host's certificate chooser, which saves the choice to [repository]. */
+    onChooseClientCertificate: () -> Unit = {},
 ) {
     val persistedSettings by repository.updates.collectAsStateWithLifecycle(initialValue = repository.snapshot())
     var dialog by rememberSaveable { mutableStateOf<AiSummarySettingsDialog?>(null) }
@@ -176,6 +178,7 @@ fun AiSummarySettingsRoute(
             mode = persistedSettings.mode,
             baseUrl = persistedSettings.baseUrl,
             apiKeyPreview = persistedSettings.apiKeyPreview,
+            clientCertificate = persistedSettings.clientCertificate,
             model = persistedSettings.model,
             systemPrompt = persistedSettings.systemPrompt,
             streamResponses = persistedSettings.streamResponses,
@@ -188,7 +191,7 @@ fun AiSummarySettingsRoute(
             geminiNanoSummaryMode = persistedSettings.geminiNanoSummaryMode,
             disabledReason = if (
                 persistedSettings.mode == AiSummaryMode.CLOUD &&
-                persistedSettings.credentialsLoaded && persistedSettings.apiKey.isBlank()
+                persistedSettings.credentialsLoaded && !persistedSettings.cloudCredentialAvailable
             ) {
                 "API key not set"
             } else {
@@ -211,7 +214,16 @@ fun AiSummarySettingsRoute(
         onAutoSummarizeChanged = repository::setAutoSummarizeArticles,
         onEnableBoldFormattingChanged = repository::setEnableBoldFormatting,
         onShowAdditionalInfoChanged = repository::setShowAdditionalInfo,
-        onDialogRequested = { dialog = it },
+        onDialogRequested = { requested ->
+            // With nothing to change or remove, go straight to the host's chooser.
+            if (requested == AiSummarySettingsDialog.ClientCertificate &&
+                persistedSettings.clientCertificate.isNullOrEmpty()
+            ) {
+                onChooseClientCertificate()
+            } else {
+                dialog = requested
+            }
+        },
         localModelsContent = localModelsContent,
         onArticleCategoriesRequested = onArticleCategoriesRequested,
     )
@@ -234,6 +246,16 @@ fun AiSummarySettingsRoute(
                 showReset = false,
                 onDismiss = dismiss,
                 onSaved = onTextSettingSaved,
+            )
+            AiSummarySettingsDialog.ClientCertificate -> MessageActionDialog(
+                title = "Client certificate",
+                message = "Your AI server identifies this device by " +
+                    "“${persistedSettings.clientCertificate.orEmpty()}”.",
+                positiveLabel = "Change",
+                negativeLabel = "Remove",
+                onPositive = { dismiss(); onChooseClientCertificate() },
+                onNegative = { dismiss(); repository.setClientCertificate("") },
+                onDismiss = dismiss,
             )
             AiSummarySettingsDialog.Model -> AiModelSelectorRoute(onDismiss = dismiss)
             AiSummarySettingsDialog.SystemPrompt -> AiSummaryTextDialog(

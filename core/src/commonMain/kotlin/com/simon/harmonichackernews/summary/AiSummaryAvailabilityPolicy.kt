@@ -7,17 +7,17 @@ object AiSummaryAvailabilityPolicy {
         explicitlyEnabled: Boolean?,
         mode: String,
         localAvailable: Boolean,
-        cloudApiKeyAvailable: Boolean,
+        cloudCredentialAvailable: Boolean,
     ): Boolean {
         if (explicitlyEnabled == false) return false
-        return if (mode == MODE_LOCAL) localAvailable else cloudApiKeyAvailable
+        return if (mode == MODE_LOCAL) localAvailable else cloudCredentialAvailable
     }
 
     fun isEnabled(
         explicitlyEnabled: Boolean?,
         localAvailable: Boolean,
-        cloudApiKeyAvailable: Boolean,
-    ): Boolean = explicitlyEnabled ?: (localAvailable || cloudApiKeyAvailable)
+        cloudCredentialAvailable: Boolean,
+    ): Boolean = explicitlyEnabled ?: (localAvailable || cloudCredentialAvailable)
 
     fun shouldAutomaticallySummarize(
         automaticSummariesEnabled: Boolean,

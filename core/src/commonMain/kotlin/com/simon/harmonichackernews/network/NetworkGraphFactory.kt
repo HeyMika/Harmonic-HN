@@ -23,6 +23,7 @@ data class NetworkGraphEnvironment(
     // Generic HTTP and HN actions continue to use engine, even when the action is a GET.
     val readOnlyEngine: (() -> HttpClientEngine)? = null,
     val cloudEndpointAccess: CloudEndpointAccess = CloudEndpointAccess.Unrestricted,
+    val clientCertificateClient: ClientCertificateHttpClient? = null,
 )
 
 /** Canonical network bootstrap used by Android, iOS and desktop. */
@@ -49,6 +50,7 @@ object NetworkGraphFactory {
             userAgent = environment.userAgent,
             cacheMaintenance = environment.cacheMaintenance,
             cloudEndpointAccess = environment.cloudEndpointAccess,
+            clientCertificateClient = environment.clientCertificateClient,
             readOnlyTransport = environment.readOnlyEngine?.let { engine ->
                 NetworkTransport(environment.transportDispatcher) {
                     createHarmonicHttpClient(engine(), environment.userAgent, environment.configureTransport)

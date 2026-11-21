@@ -103,6 +103,7 @@ internal fun rememberSettingsSearchEntries(capabilities: SettingsSearchCapabilit
         accountPreview = debugAccount.username != null,
         debug = dependencies.metadata.debugSettingsEnabled,
         cloudAiSupported = dependencies.aiSummarySettings.cloudAiSupported,
+        clientCertificate = ai.clientCertificate != null,
         cloudAi = ai.mode == AiSummaryMode.CLOUD || dependencies.localSummaryEngine?.canAttempt() != true,
         geminiNano = ai.mode == AiSummaryMode.LOCAL && dependencies.localSummaryEngine?.canAttempt() == true &&
             localModel?.selectedModelId == LocalModelCatalog.MODEL_GEMINI_NANO,

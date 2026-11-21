@@ -15,7 +15,7 @@ import com.simon.harmonichackernews.resources.*
 import com.simon.harmonichackernews.settings.AiSummaryMode
 import com.simon.harmonichackernews.settings.GeminiNanoSummaryMode
 
-enum class AiSummarySettingsDialog { BaseUrl, ApiKey, Model, SystemPrompt }
+enum class AiSummarySettingsDialog { BaseUrl, ApiKey, ClientCertificate, Model, SystemPrompt }
 
 data class AiSummarySettingsUiState(
     val enabled: Boolean,
@@ -35,6 +35,8 @@ data class AiSummarySettingsUiState(
     val disabledReason: String? = null,
     val localUnavailableReason: String? = null,
     val cloudAiSupported: Boolean = true,
+    /** Null hides the row; empty means no certificate has been chosen. */
+    val clientCertificate: String? = null,
 )
 
 @Composable
@@ -227,6 +229,15 @@ private fun CloudAiModelSettingsContent(
             onClick = { onDialogRequested(AiSummarySettingsDialog.ApiKey) },
         )
         SettingsDivider()
+        state.clientCertificate?.let { certificate ->
+            SettingRow(
+                title = "Client certificate",
+                summary = certificate.ifEmpty { "None" },
+                icon = Res.drawable.ic_license,
+                onClick = { onDialogRequested(AiSummarySettingsDialog.ClientCertificate) },
+            )
+            SettingsDivider()
+        }
         SettingRow(
             title = "Model",
             summary = state.model.ifBlank { "Finding a recommended model…" },

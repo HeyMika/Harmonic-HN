@@ -149,6 +149,7 @@ class HarmonicAppComposition(
         changes = host.settingsChanges,
         credentialDispatcher = platform.credentialDispatcher,
         cloudAiSupported = host.cloudAiSupported,
+        clientCertificatesSupported = network.clientCertificatesSupported,
     )
     val aiModelDefaults = AiModelDefaultsUseCase(
         settings = aiSummarySettings,
