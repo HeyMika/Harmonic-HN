@@ -236,4 +236,33 @@ class DiscussionSummaryRuntimeTest {
         assertEquals(73, runtime.state.value.coverage?.included)
         assertEquals("This discussion is too large for the selected model.", runtime.state.value.error)
     }
+
+    @Test fun clientCertificateAloneMakesCloudSummariesAvailableAndReachesTheRequest() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val settings = AiSummarySettingsRepository(
+            TestKeyValueStore(), TestCredentialStore(), emptyFlow(), dispatcher,
+            clientCertificatesSupported = true,
+        )
+        settings.setMode(AiSummaryMode.CLOUD)
+        settings.setBaseUrl("https://example.com/v1")
+        settings.setModel("configured-model")
+        val requests = mutableListOf<CloudSummaryConfig>()
+        val cloud = SummaryUseCase(object : CloudSummaryRepository {
+            override suspend fun fetchModelIds(baseUrl: String, apiKey: String): List<String> = error("No model lookup")
+            override suspend fun extractMainContent(url: String): String = error("No article extraction")
+            override fun summarize(config: CloudSummaryConfig, text: String?) = flow {
+                requests += config
+                emit(CloudSummaryEvent.Success("Summary"))
+            }
+        })
+        val runtime = DiscussionSummaryRuntime(this, settings, cloud, null, { false }, dispatcher)
+        assertFalse(runtime.available())
+
+        settings.setClientCertificate("phone")
+        assertTrue(runtime.available())
+        runtime.open("Title", null, source, false)
+        advanceUntilIdle()
+        assertEquals("phone", requests.single().clientCertificate)
+        assertEquals("", requests.single().apiKey)
+    }
 }

@@ -55,7 +55,7 @@ class DiscussionSummaryRuntime(
         return when (config.mode) {
             AiSummaryMode.LOCAL -> local?.isReady(useGeminiNanoSummarizationLora = false) == true
             AiSummaryMode.CLOUD -> settings.cloudAiSupported && config.baseUrl.isNotBlank() &&
-                config.apiKey.isNotBlank() && config.model.isNotBlank()
+                config.cloudCredentialAvailable && config.model.isNotBlank()
         }
     }
 
