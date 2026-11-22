@@ -53,6 +53,8 @@ object CommentsScreenStateFactory {
             loadingFailedServerError = state.failure ==
                 StoryLoadFailure.NOT_FOUND && !debugSampleLoaded,
             usingOfficialApiFallback = state.usingOfficialApiFallback && !debugSampleLoaded,
+            loadingOfficialBranches = state.loadingOfficialBranches,
+            failedOfficialBranches = state.failedOfficialBranches,
             showRefreshPrompt = state.showRefreshPrompt && !debugSampleLoaded,
             lastRefreshed = state.lastLoadedMillis,
             opThreadFilterEnabled = thread.opThreadFilterEnabled,
@@ -77,6 +79,9 @@ object CommentsScreenStateFactory {
             pollVoteInFlightOptionId = state.pollVoteInFlightOptionId,
             storySummaryLoading = feature.summaryLoading,
             summaryDiagnostics = feature.summaryDiagnostics,
+            discussionSummary = feature.discussionSummary,
+            canSummarizeDiscussion = feature.canSummarizeDiscussion,
+            discussionRequestBlocked = feature.discussionRequestBlocked,
             headerPreviewResource = feature.headerPreviewResource,
             commentFavoriteLoadingId = state.commentFavoriteLoadingId,
             commentVoteLoadingId = state.commentVoteLoadingId,
