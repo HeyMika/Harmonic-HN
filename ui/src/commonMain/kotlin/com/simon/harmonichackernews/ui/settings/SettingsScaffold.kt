@@ -216,7 +216,7 @@ fun SettingsListScreen(
                                     selectedSection == SettingsSection.ClickedPosts ||
                                     selectedSection == SettingsSection.StoriesSpacing) ||
                                 entry.section == SettingsSection.About &&
-                                selectedSection == SettingsSection.Licenses
+                                (selectedSection == SettingsSection.Licenses || selectedSection == SettingsSection.LicenseNotice)
                             SettingsNavigationRow(
                                 title = stringResource(entry.section.titleResource),
                                 summary = if (entry.section == SettingsSection.About) {
@@ -511,7 +511,7 @@ internal class SettingsCategoryScope {
 }
 
 @Composable
-private fun SettingsCategoryHeading(title: String, titleTopPadding: Dp) {
+internal fun SettingsCategoryHeading(title: String, titleTopPadding: Dp = HarmonicDimens.compose_settings_category_padding_top) {
     val colors = HarmonicTheme.colors
     Column {
         Crossfade(

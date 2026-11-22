@@ -8,6 +8,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SettingsSearchTest {
+    @Test fun voiceChoiceIsOnlyIndexedWhenAvailable() {
+        assertEquals("Text to speech", target("Read aloud").path.last())
+        assertEquals("Text to speech", target("Show mini-player").path.last())
+        assertFalse(entries().any { it.title == "Use ML Kit voice" })
+        val supported = SettingsSearchAvailability(capabilities = SettingsSearchCapabilities(naturalVoiceAvailable = true))
+        assertEquals(SettingsSection.ReaderMode.route, entries(supported).single { it.title == "Use ML Kit voice" }.screenRoute)
+    }
+
     @Test fun miniPlayerSettingIsOnlyIndexedForMobileHosts() {
         assertEquals(SettingsSection.ReaderMode.route, target("Show mini-player").screenRoute)
         val desktop = SettingsSearchAvailability(capabilities = SettingsSearchCapabilities(
