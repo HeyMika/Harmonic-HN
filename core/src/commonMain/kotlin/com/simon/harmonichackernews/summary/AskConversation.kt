@@ -182,6 +182,7 @@ class AskConversation(
                         } else {
                             summaries.summarizeText(CloudSummaryConfig(
                                 baseUrl = config.baseUrl, apiKey = config.apiKey, model = config.model,
+                                clientCertificate = config.clientCertificate.orEmpty(),
                                 streamResponses = true,
                                 systemPrompt = prompt, inputCharacterLimit = MAX_INPUT,
                             ), input).collect { event ->

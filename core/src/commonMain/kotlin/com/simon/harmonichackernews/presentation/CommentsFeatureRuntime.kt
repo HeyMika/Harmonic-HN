@@ -278,7 +278,7 @@ class CommentsFeatureRuntime(
                 explicitlyEnabled = snapshot.explicitlyEnabled,
                 mode = snapshot.mode.storedValue,
                 localAvailable = localSummaryAvailable(),
-                cloudApiKeyAvailable = snapshot.apiKey.isNotBlank(),
+                cloudCredentialAvailable = snapshot.cloudCredentialAvailable,
             )
         } ?: false)
         val previous = mutableSettingsState.value
@@ -600,7 +600,7 @@ class CommentsFeatureRuntime(
         if (!AiSummaryAvailabilityPolicy.isEnabled(
                 explicitlyEnabled = snapshot.explicitlyEnabled,
                 localAvailable = localSummaryAvailable(),
-                cloudApiKeyAvailable = snapshot.apiKey.isNotBlank(),
+                cloudCredentialAvailable = snapshot.cloudCredentialAvailable,
             )
         ) return
         summaryPageTextRetryAttempted = false
@@ -926,7 +926,7 @@ class CommentsFeatureRuntime(
             explicitlyEnabled = snapshot.explicitlyEnabled,
             mode = snapshot.mode.storedValue,
             localAvailable = localSummaryAvailable(),
-            cloudApiKeyAvailable = snapshot.apiKey.isNotBlank(),
+            cloudCredentialAvailable = snapshot.cloudCredentialAvailable,
         )
         if (!AiSummaryAvailabilityPolicy.shouldAutomaticallySummarize(
                 automaticSummariesEnabled = snapshot.autoSummarizeArticles,

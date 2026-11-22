@@ -22,6 +22,7 @@ object AiSummaryPreferenceKeys {
     const val ENABLED = "pref_ai_summary_enabled"
     const val MODE = "pref_ai_summary_mode"
     const val BASE_URL = "pref_ai_summary_base_url"
+    const val CLIENT_CERTIFICATE = "pref_ai_summary_client_certificate"
     const val MODEL = "pref_ai_summary_model"
     const val SYSTEM_PROMPT = "pref_ai_summary_system_prompt"
     const val STREAM_RESPONSES = "pref_ai_summary_stream_responses"
@@ -66,9 +67,18 @@ data class AiSummarySettingsSnapshot(
     val enableBoldFormatting: Boolean,
     val showAdditionalInfo: Boolean,
     val credentialsLoaded: Boolean = true,
+    /**
+     * Name of the host-stored TLS client certificate for a self-hosted server. Null when the
+     * host or the selected provider does not take one; empty when none has been chosen.
+     */
+    val clientCertificate: String? = null,
 ) {
+    /** A client certificate can authenticate a self-hosted server without an API key. */
+    val cloudCredentialAvailable: Boolean
+        get() = apiKey.isNotBlank() || !clientCertificate.isNullOrEmpty()
+
     val cloudConfigurationComplete: Boolean
-        get() = baseUrl.isNotBlank() && apiKey.isNotBlank() && model.isNotBlank() &&
+        get() = baseUrl.isNotBlank() && cloudCredentialAvailable && model.isNotBlank() &&
             systemPrompt.isNotBlank()
 
     fun configurationComplete(localConfigurationReady: Boolean): Boolean =
@@ -95,6 +105,7 @@ class AiSummarySettingsRepository(
     changes: Flow<Unit>,
     private val credentialDispatcher: CoroutineDispatcher = Dispatchers.Default,
     val cloudAiSupported: Boolean = true,
+    private val clientCertificatesSupported: Boolean = false,
 ) {
     private val credentialMutex = Mutex()
     private val apiKeyState = MutableStateFlow<String?>(if (cloudAiSupported) null else "")
@@ -111,10 +122,7 @@ class AiSummarySettingsRepository(
         } else {
             AiSummaryMode.LOCAL
         },
-        baseUrl = store.getString(
-            AiSummaryPreferenceKeys.BASE_URL,
-            AiSummaryProviders.defaultBaseUrl,
-        ) ?: AiSummaryProviders.defaultBaseUrl,
+        baseUrl = storedBaseUrl(),
         apiKey = apiKeyState.value.orEmpty(),
         model = store.getString(AiSummaryPreferenceKeys.MODEL, "").orEmpty(),
         systemPrompt = store.getString(
@@ -138,7 +146,22 @@ class AiSummarySettingsRepository(
             false,
         ),
         credentialsLoaded = apiKeyState.value != null,
+        // The certificate identifies the user, so it is never offered to a public provider. The
+        // saved choice survives a provider change and applies again on the next custom server.
+        clientCertificate = if (
+            clientCertificatesSupported &&
+            AiSummaryProviders.getProviderForBaseUrl(storedBaseUrl()) == null
+        ) {
+            store.getString(AiSummaryPreferenceKeys.CLIENT_CERTIFICATE, "").orEmpty()
+        } else {
+            null
+        },
     )
+
+    private fun storedBaseUrl(): String = store.getString(
+        AiSummaryPreferenceKeys.BASE_URL,
+        AiSummaryProviders.defaultBaseUrl,
+    ) ?: AiSummaryProviders.defaultBaseUrl
 
     val updates: Flow<AiSummarySettingsSnapshot> = merge(
         changes,
@@ -228,6 +251,15 @@ class AiSummarySettingsRepository(
         }
     }
 
+    /** Stores the host's name for the chosen certificate; an empty name removes the choice. */
+    fun setClientCertificate(value: String) {
+        if (value.isEmpty()) {
+            store.remove(AiSummaryPreferenceKeys.CLIENT_CERTIFICATE)
+        } else {
+            store.putString(AiSummaryPreferenceKeys.CLIENT_CERTIFICATE, value)
+        }
+    }
+
     fun setBaseUrl(value: String): AiBaseUrlUpdate {
         val previous = snapshot()
         val oldProvider = AiSummaryProviders.getProviderForBaseUrl(previous.baseUrl)
@@ -287,6 +319,7 @@ class AiSummarySettingsRepository(
             model = current.model,
             systemPrompt = current.systemPrompt,
             streamResponses = current.streamResponses,
+            clientCertificate = current.clientCertificate.orEmpty(),
         )
     }
 
