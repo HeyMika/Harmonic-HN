@@ -44,6 +44,10 @@ sealed interface CloudSummaryEvent {
 
 interface CloudSummaryRepository {
     suspend fun fetchModelIds(baseUrl: String, apiKey: String): List<String>
+
+    /** Models the configured server reports, authenticated the same way as its summaries. */
+    suspend fun fetchModelIds(config: CloudSummaryConfig): List<String> =
+        fetchModelIds(config.baseUrl, config.apiKey)
     suspend fun extractMainContent(url: String): String
     fun summarize(config: CloudSummaryConfig, text: String?): Flow<CloudSummaryEvent>
 }
@@ -55,11 +59,22 @@ class KtorCloudSummaryRepository(
     private val endpointAccess: CloudEndpointAccess = CloudEndpointAccess.Unrestricted,
     private val clientCertificateClient: ClientCertificateHttpClient? = null,
 ) : CloudSummaryRepository {
-    override suspend fun fetchModelIds(baseUrl: String, apiKey: String): List<String> = withContext(requestDispatcher) {
-        endpointAccess.ensureAccess(baseUrl)
-        val requestBuilder = HttpRequest.Builder().url(joinUrl(baseUrl, "models"))
-        if (apiKey.isNotBlank()) requestBuilder.header("Authorization", "Bearer $apiKey")
-        val response = client.execute(requestBuilder.get().build(), maxBytes = MAX_MODEL_CATALOG_BYTES)
+    override suspend fun fetchModelIds(baseUrl: String, apiKey: String): List<String> =
+        fetchModelIds(CloudSummaryConfig(baseUrl, apiKey, model = ""))
+
+    override suspend fun fetchModelIds(config: CloudSummaryConfig): List<String> = withContext(requestDispatcher) {
+        endpointAccess.ensureAccess(config.baseUrl)
+        val requestBuilder = HttpRequest.Builder().url(joinUrl(config.baseUrl, "models"))
+        if (config.apiKey.isNotBlank()) requestBuilder.header("Authorization", "Bearer ${config.apiKey}")
+        val response = try {
+            endpointClient(config).execute(requestBuilder.get().build(), maxBytes = MAX_MODEL_CATALOG_BYTES)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: CloudSummaryException) {
+            throw error
+        } catch (error: Throwable) {
+            throw CloudSummaryException("Could not load models: ${error.readableMessage()}", error)
+        }
         try {
             val body = response.body.readText(MAX_MODEL_CATALOG_BYTES)
             if (!response.isSuccessful) throw CloudSummaryException(

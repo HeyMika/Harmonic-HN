@@ -62,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -111,6 +112,11 @@ fun AiModelSelectorDialog(
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
     providerIcon: @Composable (providerSlug: String) -> Unit,
+    /**
+     * Lists the models of a self-hosted server. When set, its answer replaces the public catalog
+     * together with the prices, uptime and filters that only the catalog knows.
+     */
+    serverModels: (suspend () -> List<String>)? = null,
 ) {
     var modelInput by rememberSaveable(provider.id, initialModel) { mutableStateOf(initialModel) }
     var modelError by rememberSaveable(provider.id) { mutableStateOf<String?>(null) }
@@ -178,7 +184,7 @@ fun AiModelSelectorDialog(
         dismissWithAnimation { onSave(selected) }
     }
 
-    LaunchedEffect(provider, filter, catalogReload) {
+    LaunchedEffect(provider, filter, catalogReload, serverModels != null) {
         catalogState = AiModelCatalogState.Loading
         val sort = if (filter == AiModelFilter.Price) {
             AiModelCatalogSort.PRICE_LOW_TO_HIGH
@@ -186,7 +192,8 @@ fun AiModelSelectorDialog(
             AiModelCatalogSort.POPULAR
         }
         catalogState = try {
-            val models = catalogRepository.fetchModels(provider, sort)
+            val models = serverModels?.invoke()?.map(::serverModel)
+                ?: catalogRepository.fetchModels(provider, sort)
             AiModelCatalogState.Loaded(
                 if (filter == AiModelFilter.Free) models.filter(AiModel::isFree) else models,
             )
@@ -199,7 +206,7 @@ fun AiModelSelectorDialog(
 
     LaunchedEffect(provider.id, modelInput) {
         val requestedModel = modelInput.trim()
-        if (requestedModel.isEmpty()) {
+        if (requestedModel.isEmpty() || serverModels != null) {
             priceState = AiModelPriceState.Empty
             return@LaunchedEffect
         }
@@ -249,7 +256,16 @@ fun AiModelSelectorDialog(
             var footerHeight by remember { mutableIntStateOf(with(density) { 77.dp.roundToPx() }) }
             val screenHeight = LocalWindowInfo.current.containerSize.height
             val availableHeight = with(density) { maxHeight.roundToPx() }
-            val scrollWholePage = headerHeight + footerHeight > availableHeight - screenHeight * 0.25f
+            // Switching layouts moves the header to another parent, which drops the input's focus.
+            // The keyboard then closes, the height returns, and the header moves straight back.
+            // So the layout chosen before the input was focused stays while the keyboard is up.
+            var inputFocused by remember { mutableStateOf(false) }
+            val layout = remember { object { var scrollWholePage = false } }
+            if (!inputFocused) {
+                layout.scrollWholePage =
+                    headerHeight + footerHeight > availableHeight - screenHeight * 0.25f
+            }
+            val scrollWholePage = layout.scrollWholePage
             val currentHeader by rememberUpdatedState<@Composable () -> Unit>({
                 Column(Modifier.fillMaxWidth().wrapContentHeight(unbounded = true)
                     .onSizeChanged { headerHeight = it.height }.testTag("ai-model-picker-header")) {
@@ -263,7 +279,10 @@ fun AiModelSelectorDialog(
                         lineHeight = 32.sp,
                     )
                     Text(
-                        text = stringResource(Res.string.ai_model_catalog_subtitle),
+                        text = stringResource(
+                            if (serverModels == null) Res.string.ai_model_catalog_subtitle
+                            else Res.string.ai_model_server_subtitle,
+                        ),
                         modifier = Modifier.padding(start = 24.dp, top = 2.dp, end = 24.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
@@ -279,6 +298,7 @@ fun AiModelSelectorDialog(
                         },
                         modifier = Modifier
                             .testTag("ai-model-input")
+                            .onFocusChanged { inputFocused = it.isFocused }
                             .fillMaxWidth()
                             .animateContentSize()
                             .padding(start = 24.dp, top = 18.dp, end = 24.dp, bottom = 10.dp)
@@ -297,7 +317,7 @@ fun AiModelSelectorDialog(
                         ),
                         keyboardActions = KeyboardActions(onDone = { saveAndDismiss() }),
                     )
-                    AiModelPrice(priceState)
+                    if (serverModels == null) AiModelPrice(priceState)
 
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
@@ -316,7 +336,7 @@ fun AiModelSelectorDialog(
                             lineHeight = 21.sp,
                         )
                     }
-                    FlowRow(
+                    if (serverModels == null) FlowRow(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
@@ -399,13 +419,22 @@ fun AiModelSelectorDialog(
                             }
                         }
                         is AiModelCatalogState.Loaded -> {
-                            if (state.models.isEmpty()) item(key = "empty") { Text(stringResource(Res.string.ai_model_no_free), Modifier.padding(24.dp)) }
+                            if (state.models.isEmpty()) item(key = "empty") {
+                                Text(
+                                    stringResource(
+                                        if (serverModels == null) Res.string.ai_model_no_free
+                                        else Res.string.ai_model_server_empty,
+                                    ),
+                                    Modifier.padding(24.dp),
+                                )
+                            }
                             items(state.models, key = { it.openRouterId }, contentType = { "model" }) { model ->
                                 AiModelRow(
                                     model = model,
                                     provider = provider,
                                     catalogRepository = catalogRepository,
                                     selected = model.requestId == modelInput.trim(),
+                                    catalogDetails = serverModels == null,
                                     enabled = !dismissing,
                                     onClick = {
                                         priceState = AiModelPriceState.Resolved(model)
@@ -492,6 +521,7 @@ private fun AiModelRow(
     provider: AiSummaryProviders.Provider,
     catalogRepository: AiModelCatalogRepository,
     selected: Boolean,
+    catalogDetails: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
     providerIcon: @Composable (String) -> Unit,
@@ -499,7 +529,8 @@ private fun AiModelRow(
     var uptimeLastDay by remember(provider.id, model.openRouterId) {
         mutableStateOf<Double?>(null)
     }
-    LaunchedEffect(provider.id, model.openRouterId) {
+    LaunchedEffect(provider.id, model.openRouterId, catalogDetails) {
+        if (!catalogDetails) return@LaunchedEffect
         uptimeLastDay = try {
             catalogRepository.fetchUptimeLastDay(provider, model.openRouterId)
         } catch (error: CancellationException) {
@@ -522,7 +553,7 @@ private fun AiModelRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 4.dp)
-            .defaultMinSize(minHeight = 92.dp)
+            .defaultMinSize(minHeight = if (catalogDetails) 92.dp else 0.dp)
             .then(
                 if (selected) {
                     Modifier.border(2.dp, MaterialTheme.colorScheme.primary, rowShape)
@@ -543,8 +574,8 @@ private fun AiModelRow(
             ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            providerIcon(model.providerSlug())
-            Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
+            if (catalogDetails) providerIcon(model.providerSlug())
+            Column(modifier = Modifier.weight(1f).padding(start = if (catalogDetails) 10.dp else 0.dp)) {
                 Text(
                     text = model.displayName(),
                     color = MaterialTheme.colorScheme.onSurface,
@@ -555,7 +586,8 @@ private fun AiModelRow(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
+                // A server reports nothing beyond the ID already shown as the name.
+                if (catalogDetails) Text(
                     text = model.requestId,
                     modifier = Modifier.padding(top = 2.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -565,7 +597,7 @@ private fun AiModelRow(
                     maxLines = 1,
                     overflow = TextOverflow.MiddleEllipsis,
                 )
-                FlowRow(
+                if (catalogDetails) FlowRow(
                     modifier = Modifier.padding(top = 7.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -623,6 +655,11 @@ private fun AiModelMetadataChip(
         lineHeight = 15.sp,
     )
 }
+
+private fun serverModel(id: String) = AiModel(
+    openRouterId = id, requestId = id, name = id, created = 0L,
+    inputPrice = Double.NaN, outputPrice = Double.NaN, contextLength = 0L,
+)
 
 private fun formatUptime(uptime: Double): String {
     val roundedTenths = (uptime.coerceIn(0.0, 100.0) * 10.0).roundToLong()

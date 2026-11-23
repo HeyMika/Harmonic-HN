@@ -12,6 +12,9 @@ class SummaryUseCase(
     suspend fun fetchModelIds(baseUrl: String, apiKey: String): List<String> =
         repository.fetchModelIds(baseUrl, apiKey)
 
+    suspend fun fetchModelIds(config: CloudSummaryConfig): List<String> =
+        repository.fetchModelIds(config)
+
     suspend fun extractArticleText(url: String): String = repository.extractMainContent(url)
 
     fun summarizeText(config: CloudSummaryConfig, text: String?): Flow<CloudSummaryEvent> =
