@@ -3,6 +3,7 @@ package com.simon.harmonichackernews.ui.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import com.simon.harmonichackernews.network.AiSummaryProviders
 import com.simon.harmonichackernews.settings.AiSummaryTextSetting
 import com.simon.harmonichackernews.ui.LocalHarmonicUiDependencies
@@ -73,8 +74,8 @@ fun AiModelSelectorRoute(
 ) {
     val app = LocalHarmonicUiDependencies.current
     val repository = app.aiSummarySettings
-    val provider = AiSummaryProviders.getProviderForBaseUrl(repository.snapshot().baseUrl)
-        ?: AiSummaryProviders.defaultProvider
+    val knownProvider = AiSummaryProviders.getProviderForBaseUrl(repository.snapshot().baseUrl)
+    val provider = knownProvider ?: AiSummaryProviders.defaultProvider
     AiModelSelectorDialog(
         initialModel = repository.modelForPicker(),
         provider = provider,
@@ -87,6 +88,12 @@ fun AiModelSelectorRoute(
                 repository = app.network.openRouterProviderIconRepository,
                 userAgent = app.network.userAgent,
             )
+        },
+        // The public catalog says nothing about what a self-hosted server has installed.
+        serverModels = if (knownProvider == null) remember(app, repository) {
+            suspend { app.network.summaryUseCase.fetchModelIds(repository.cloudConfig()) }
+        } else {
+            null
         },
     )
 }

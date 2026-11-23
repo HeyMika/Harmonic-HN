@@ -47,6 +47,33 @@ class CloudClientCertificateTest {
     }
 
     @Test
+    fun modelListingPresentsTheCertificateAndReportsUnreachableServers() = runTest {
+        val shared = HttpClient(MockEngine { error("The shared transport holds no certificate") })
+        var reachable = true
+        val certificateTransport = HttpClient(MockEngine { request ->
+            if (!reachable) throw kotlinx.io.IOException("Connection refused")
+            assertEquals("https://ai.example.test/v1/models", request.url.toString())
+            respond(
+                """{"object":"list","data":[{"id":"llama3.3"},{"id":"qwen3:8b"}]}""",
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        })
+        try {
+            val repository = KtorCloudSummaryRepository(
+                KtorHttpClient(shared), "test", StandardTestDispatcher(testScheduler),
+                clientCertificateClient = { certificateTransport },
+            )
+            assertEquals(listOf("llama3.3", "qwen3:8b"), repository.fetchModelIds(config))
+            reachable = false
+            val failure = assertFailsWith<CloudSummaryException> { repository.fetchModelIds(config) }
+            assertEquals("Could not load models: Connection refused", failure.message)
+        } finally {
+            shared.close()
+            certificateTransport.close()
+        }
+    }
+
+    @Test
     fun certificateIsRejectedWhereTheHostCannotPresentOne() = runTest {
         val shared = HttpClient(MockEngine { error("Must not fall back to the shared transport") })
         try {

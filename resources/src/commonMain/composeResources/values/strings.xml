@@ -99,6 +99,8 @@
         <item quantity="one">Models (%1$d)</item>
         <item quantity="other">Models (%1$d)</item>
     </plurals>
+    <string name="ai_model_server_subtitle">Models reported by your server</string>
+    <string name="ai_model_server_empty">Your server reported no models. Enter a model ID above.</string>
     <string name="ai_model_no_free">No free models are available for this provider right now</string>
     <string name="ai_model_price_label">INPUT / OUTPUT</string>
     <string name="ai_model_price_pair_format">%1$s / %2$s</string>
