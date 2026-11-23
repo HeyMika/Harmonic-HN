@@ -62,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -249,7 +250,16 @@ fun AiModelSelectorDialog(
             var footerHeight by remember { mutableIntStateOf(with(density) { 77.dp.roundToPx() }) }
             val screenHeight = LocalWindowInfo.current.containerSize.height
             val availableHeight = with(density) { maxHeight.roundToPx() }
-            val scrollWholePage = headerHeight + footerHeight > availableHeight - screenHeight * 0.25f
+            // Switching layouts moves the header to another parent, which drops the input's focus.
+            // The keyboard then closes, the height returns, and the header moves straight back.
+            // So the layout chosen before the input was focused stays while the keyboard is up.
+            var inputFocused by remember { mutableStateOf(false) }
+            val layout = remember { object { var scrollWholePage = false } }
+            if (!inputFocused) {
+                layout.scrollWholePage =
+                    headerHeight + footerHeight > availableHeight - screenHeight * 0.25f
+            }
+            val scrollWholePage = layout.scrollWholePage
             val currentHeader by rememberUpdatedState<@Composable () -> Unit>({
                 Column(Modifier.fillMaxWidth().wrapContentHeight(unbounded = true)
                     .onSizeChanged { headerHeight = it.height }.testTag("ai-model-picker-header")) {
@@ -288,6 +298,7 @@ fun AiModelSelectorDialog(
                         supportingText = modelError?.let { message -> { Text(message) } },
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            .onFocusChanged { inputFocused = it.isFocused }
                             fontFamily = AppTechnicalFontFamily,
                             fontSize = 14.sp,
                         ),
